@@ -1,4 +1,3 @@
-```lua
 --[[
 	@nodesupport
 	7/10/19
@@ -84,4 +83,3 @@ function Init()
 end
 
 Init()
-```
