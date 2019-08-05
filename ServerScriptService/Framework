@@ -1,0 +1,85 @@
+--[[
+	@nodesupport
+	7/10/19
+--]]
+
+local Framework = {
+	Server = {},
+	Client = {},
+	Shared = {},
+}
+
+local meta = {__index = Framework}
+Framework.Services = {}
+
+setmetatable(Framework.Services, {
+	__index = function(self, index)
+		if game:GetService(index) then
+			return game:GetService(index)
+		end
+	end
+})
+
+local function findModule(name, folder)
+	for _,v in pairs(folder:GetDescendants()) do
+		if v:IsA("ModuleScript") and v.Name == tostring(name) then
+			return v
+		end
+	end
+	return false
+end
+
+local function lazyLoadModule(tbl, folder)
+	return setmetatable(tbl, {
+		__index = function(self, module)
+			local requiredModule
+			if module ~= "Start" and findModule(module, folder) then
+				requiredModule = require(findModule(module, folder))
+				if type(requiredModule) == "table" then
+					setmetatable(requiredModule, meta)
+					if type(requiredModule.Start) == "function" then
+						requiredModule:Start()
+					end
+				end
+			else
+				return
+			end
+			assert(requiredModule, "invalid module")
+			rawset(tbl, self, requiredModule)
+			return requiredModule
+		end,
+		__call = function(self, module)
+			return findModule(module, folder)
+		end
+	})
+end
+
+local function loadModules(tbl, folder)
+	for _,v in pairs(folder:GetDescendants()) do
+		if v:IsA("ModuleScript") then
+			local requiredModule = require(v)
+			setmetatable(requiredModule, meta)
+			if requiredModule.Start then
+				requiredModule:Start()
+			end
+		end
+	end
+end
+
+local serverModules = script:WaitForChild("Modules")
+local sharedModules = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+
+function Init()
+	shared.Event = Instance.new("RemoteEvent")
+	shared.Event.Parent = sharedModules
+	
+	shared.Invoke = Instance.new("RemoteFunction")
+	shared.Invoke.Parent = sharedModules
+	
+	lazyLoadModule(Framework.Shared, sharedModules)
+	lazyLoadModule(Framework, script:WaitForChild("Handlers"))
+	
+	loadModules(Framework.Server, serverModules)
+end
+
+Init()
